@@ -1,8 +1,6 @@
-# Resume → Website Builder
+# Personal Website Builder
 
-A simple web app that converts a PDF resume into a clean, editable personal website.
-
-Users can upload their resume, edit parsed content, and instantly preview a portfolio-style site.
+A simple web app that converts a PDF resume into a clean, editable personal website. Users can upload their resume, edit parsed content, and preview a portfolio style site.
 
 ## Features
 
