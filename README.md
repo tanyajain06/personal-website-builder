@@ -30,9 +30,11 @@ A simple web app that converts a PDF resume into a clean, editable personal webs
 cd backend
 npm install
 node server.js
+```
 
 ### Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
+```
