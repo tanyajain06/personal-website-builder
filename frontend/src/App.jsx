@@ -1,35 +1,16 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import "./App.css";
-
-const emptyResume = {
-  name: "",
-  email: "",
-  phone: "",
-  linkedin: "",
-  github: "",
-  education: [],
-  experience: [],
-  projects: [],
-  skills: [],
-  leadership: [],
-};
 
 function App() {
   const [file, setFile] = useState(null);
   const [resumeData, setResumeData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("preview");
-
-  const handleFileChange = (event) => {
-    const selectedFile = event.target.files[0];
-    setFile(selectedFile);
-    setError("");
-  };
+  const [view, setView] = useState("preview");
 
   const handleUpload = async () => {
     if (!file) {
-      setError("Please select a resume PDF first.");
+      setError("Please choose a PDF first.");
       return;
     }
 
@@ -46,146 +27,55 @@ function App() {
       });
 
       const data = await response.json();
+      console.log("BACKEND RESPONSE:", data);
 
       if (!response.ok) {
-        throw new Error(data.error || "Something went wrong.");
+        throw new Error(data.error || "Upload failed.");
       }
 
-      setResumeData(data.parsedResume || emptyResume);
-      setActiveTab("editor");
+      setResumeData(data.parsedResume);
+      setView("preview");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Failed to fetch");
     } finally {
       setLoading(false);
     }
   };
 
-  const updateBasicField = (field, value) => {
-    setResumeData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const updateListField = (field, index, value) => {
-    setResumeData((prev) => {
-      const updated = [...prev[field]];
-      updated[index] = value;
-      return { ...prev, [field]: updated };
-    });
-  };
-
-  const addListItem = (field) => {
-    setResumeData((prev) => ({
-      ...prev,
-      [field]: [...prev[field], ""],
-    }));
-  };
-
-  const removeListItem = (field, index) => {
-    setResumeData((prev) => ({
-      ...prev,
-      [field]: prev[field].filter((_, i) => i !== index),
-    }));
-  };
-
-  const updateEntryHeading = (field, index, value) => {
-    setResumeData((prev) => {
-      const updated = [...prev[field]];
-      updated[index] = { ...updated[index], heading: value };
-      return { ...prev, [field]: updated };
-    });
-  };
-
-  const updateEntryBullet = (field, entryIndex, bulletIndex, value) => {
-    setResumeData((prev) => {
-      const updated = [...prev[field]];
-      const updatedBullets = [...updated[entryIndex].bullets];
-      updatedBullets[bulletIndex] = value;
-      updated[entryIndex] = {
-        ...updated[entryIndex],
-        bullets: updatedBullets,
-      };
-      return { ...prev, [field]: updated };
-    });
-  };
-
-  const addEntry = (field) => {
-    setResumeData((prev) => ({
-      ...prev,
-      [field]: [...prev[field], { heading: "", bullets: [""] }],
-    }));
-  };
-
-  const removeEntry = (field, index) => {
-    setResumeData((prev) => ({
-      ...prev,
-      [field]: prev[field].filter((_, i) => i !== index),
-    }));
-  };
-
-  const addBullet = (field, entryIndex) => {
-    setResumeData((prev) => {
-      const updated = [...prev[field]];
-      updated[entryIndex] = {
-        ...updated[entryIndex],
-        bullets: [...updated[entryIndex].bullets, ""],
-      };
-      return { ...prev, [field]: updated };
-    });
-  };
-
-  const removeBullet = (field, entryIndex, bulletIndex) => {
-    setResumeData((prev) => {
-      const updated = [...prev[field]];
-      updated[entryIndex] = {
-        ...updated[entryIndex],
-        bullets: updated[entryIndex].bullets.filter((_, i) => i !== bulletIndex),
-      };
-      return { ...prev, [field]: updated };
-    });
-  };
-
-  const isReady = useMemo(() => Boolean(resumeData), [resumeData]);
-
   return (
     <div className="app-shell">
-      <aside className="left-panel">
-        <div className="brand-card">
+      <aside className="sidebar">
+        <div className="sidebar-card">
           <div className="badge">ResumeSite</div>
-          <h1>Resume to Website</h1>
-          <p>
-            Upload a resume, clean up the extracted content, and preview it as a
-            polished personal website.
-          </p>
+          <h1>Resume → Site</h1>
 
-          <label className="upload-box">
+          <label className="file-label">
             <span>{file ? file.name : "Choose a PDF resume"}</span>
             <input
               type="file"
               accept="application/pdf"
-              onChange={handleFileChange}
+              onChange={(e) => setFile(e.target.files[0])}
             />
           </label>
 
-          <button className="primary-btn" onClick={handleUpload} disabled={loading}>
-            {loading ? "Generating..." : "Upload Resume"}
+          <button className="primary-btn" onClick={handleUpload}>
+            {loading ? "Uploading..." : "Upload Resume"}
           </button>
 
-          {error && <p className="error-text">{error}</p>}
+          {error && <p className="error">{error}</p>}
         </div>
 
-        {isReady && (
-          <div className="tab-card">
+        {resumeData && (
+          <div className="sidebar-card toggle-card">
             <button
-              className={activeTab === "editor" ? "tab active-tab" : "tab"}
-              onClick={() => setActiveTab("editor")}
+              className={view === "edit" ? "toggle-btn active" : "toggle-btn"}
+              onClick={() => setView("edit")}
             >
               Edit Content
             </button>
             <button
-              className={activeTab === "preview" ? "tab active-tab" : "tab"}
-              onClick={() => setActiveTab("preview")}
+              className={view === "preview" ? "toggle-btn active" : "toggle-btn"}
+              onClick={() => setView("preview")}
             >
               Website Preview
             </button>
@@ -193,273 +83,167 @@ function App() {
         )}
       </aside>
 
-      <main className="main-panel">
-        {!isReady && (
+      <main className="main-content">
+        {!resumeData && (
           <div className="empty-state">
-            <h2>Start with a resume upload</h2>
-            <p>
-              Once your PDF is parsed, you can edit the extracted content and view
-              your generated website here.
-            </p>
+            <h2>Upload a resume to begin</h2>
           </div>
         )}
 
-        {isReady && activeTab === "editor" && (
-          <ResumeEditor
-            data={resumeData}
-            updateBasicField={updateBasicField}
-            updateListField={updateListField}
-            addListItem={addListItem}
-            removeListItem={removeListItem}
-            updateEntryHeading={updateEntryHeading}
-            updateEntryBullet={updateEntryBullet}
-            addEntry={addEntry}
-            removeEntry={removeEntry}
-            addBullet={addBullet}
-            removeBullet={removeBullet}
-          />
+        {resumeData && view === "edit" && (
+          <ResumeEditor data={resumeData} setData={setResumeData} />
         )}
 
-        {isReady && activeTab === "preview" && <WebsitePreview data={resumeData} />}
+        {resumeData && view === "preview" && (
+          <WebsitePreview data={resumeData} />
+        )}
       </main>
     </div>
   );
 }
 
-function ResumeEditor({
-  data,
-  updateBasicField,
-  updateListField,
-  addListItem,
-  removeListItem,
-  updateEntryHeading,
-  updateEntryBullet,
-  addEntry,
-  removeEntry,
-  addBullet,
-  removeBullet,
-}) {
+function ResumeEditor({ data, setData }) {
+  const updateField = (field, value) => {
+    setData({ ...data, [field]: value });
+  };
+
+  const updateArrayItem = (field, index, value) => {
+    const updated = [...(data[field] || [])];
+    updated[index] = value;
+    setData({ ...data, [field]: updated });
+  };
+
+  const addItem = (field) => {
+    setData({ ...data, [field]: [...(data[field] || []), ""] });
+  };
+
+  const removeItem = (field, index) => {
+    const updated = (data[field] || []).filter((_, i) => i !== index);
+    setData({ ...data, [field]: updated });
+  };
+
   return (
-    <div className="editor-grid">
-      <section className="editor-card">
+    <div className="editor-layout">
+      <div className="editor-card pastel-a">
         <h2>Basic Info</h2>
-        <TextField
-          label="Name"
-          value={data.name}
-          onChange={(value) => updateBasicField("name", value)}
-        />
-        <TextField
-          label="Email"
-          value={data.email}
-          onChange={(value) => updateBasicField("email", value)}
-        />
-        <TextField
-          label="Phone"
-          value={data.phone}
-          onChange={(value) => updateBasicField("phone", value)}
-        />
-        <TextField
-          label="LinkedIn"
-          value={data.linkedin}
-          onChange={(value) => updateBasicField("linkedin", value)}
-        />
-        <TextField
-          label="GitHub"
-          value={data.github}
-          onChange={(value) => updateBasicField("github", value)}
-        />
-      </section>
 
-      <EditableStringList
+        <label>Name</label>
+        <input
+          className="text-input"
+          value={data.name || ""}
+          onChange={(e) => updateField("name", e.target.value)}
+        />
+
+        <label>Email</label>
+        <input
+          className="text-input"
+          value={data.email || ""}
+          onChange={(e) => updateField("email", e.target.value)}
+        />
+
+        <label>Phone</label>
+        <input
+          className="text-input"
+          value={data.phone || ""}
+          onChange={(e) => updateField("phone", e.target.value)}
+        />
+
+        <label>LinkedIn</label>
+        <input
+          className="text-input"
+          value={data.linkedin || ""}
+          onChange={(e) => updateField("linkedin", e.target.value)}
+        />
+
+        <label>GitHub</label>
+        <input
+          className="text-input"
+          value={data.github || ""}
+          onChange={(e) => updateField("github", e.target.value)}
+        />
+      </div>
+
+      <SimpleSection
         title="Education"
-        items={data.education}
-        onChange={(index, value) => updateListField("education", index, value)}
-        onAdd={() => addListItem("education")}
-        onRemove={(index) => removeListItem("education", index)}
+        field="education"
+        data={data}
+        updateArrayItem={updateArrayItem}
+        addItem={addItem}
+        removeItem={removeItem}
+        className="pastel-b"
       />
 
-      <EditableStringList
+      <SimpleSection
         title="Skills"
-        items={data.skills}
-        onChange={(index, value) => updateListField("skills", index, value)}
-        onAdd={() => addListItem("skills")}
-        onRemove={(index) => removeListItem("skills", index)}
-      />
-
-      <EditableEntryList
-        title="Experience"
-        field="experience"
-        items={data.experience}
-        updateEntryHeading={updateEntryHeading}
-        updateEntryBullet={updateEntryBullet}
-        addEntry={addEntry}
-        removeEntry={removeEntry}
-        addBullet={addBullet}
-        removeBullet={removeBullet}
-      />
-
-      <EditableEntryList
-        title="Projects"
-        field="projects"
-        items={data.projects}
-        updateEntryHeading={updateEntryHeading}
-        updateEntryBullet={updateEntryBullet}
-        addEntry={addEntry}
-        removeEntry={removeEntry}
-        addBullet={addBullet}
-        removeBullet={removeBullet}
-      />
-
-      <EditableEntryList
-        title="Leadership & Involvement"
-        field="leadership"
-        items={data.leadership}
-        updateEntryHeading={updateEntryHeading}
-        updateEntryBullet={updateEntryBullet}
-        addEntry={addEntry}
-        removeEntry={removeEntry}
-        addBullet={addBullet}
-        removeBullet={removeBullet}
+        field="skills"
+        data={data}
+        updateArrayItem={updateArrayItem}
+        addItem={addItem}
+        removeItem={removeItem}
+        className="pastel-c"
       />
     </div>
   );
 }
 
-function EditableStringList({ title, items, onChange, onAdd, onRemove }) {
+function SimpleSection({
+  title,
+  field,
+  data,
+  updateArrayItem,
+  addItem,
+  removeItem,
+  className,
+}) {
   return (
-    <section className="editor-card">
-      <div className="section-header">
+    <div className={`editor-card ${className || ""}`}>
+      <div className="section-top">
         <h2>{title}</h2>
-        <button className="ghost-btn" onClick={onAdd}>+ Add</button>
+        <button className="small-btn" onClick={() => addItem(field)}>
+          + Add
+        </button>
       </div>
 
-      {items.map((item, index) => (
-        <div className="list-row" key={`${title}-${index}`}>
+      {(data[field] || []).map((item, index) => (
+        <div key={index} className="input-row">
           <input
             className="text-input"
             value={item}
-            onChange={(e) => onChange(index, e.target.value)}
+            onChange={(e) => updateArrayItem(field, index, e.target.value)}
           />
-          <button className="remove-btn" onClick={() => onRemove(index)}>
+          <button className="remove-btn" onClick={() => removeItem(field, index)}>
             Remove
           </button>
         </div>
       ))}
-    </section>
-  );
-}
-
-function EditableEntryList({
-  title,
-  field,
-  items,
-  updateEntryHeading,
-  updateEntryBullet,
-  addEntry,
-  removeEntry,
-  addBullet,
-  removeBullet,
-}) {
-  return (
-    <section className="editor-card">
-      <div className="section-header">
-        <h2>{title}</h2>
-        <button className="ghost-btn" onClick={() => addEntry(field)}>
-          + Add Entry
-        </button>
-      </div>
-
-      {items.map((item, entryIndex) => (
-        <div className="entry-block" key={`${field}-${entryIndex}`}>
-          <div className="section-header">
-            <h3>Entry {entryIndex + 1}</h3>
-            <button
-              className="remove-btn"
-              onClick={() => removeEntry(field, entryIndex)}
-            >
-              Remove Entry
-            </button>
-          </div>
-
-          <TextField
-            label="Heading"
-            value={item.heading}
-            onChange={(value) => updateEntryHeading(field, entryIndex, value)}
-          />
-
-          <div className="bullets-wrap">
-            <label className="field-label">Bullets</label>
-            {item.bullets.map((bullet, bulletIndex) => (
-              <div className="list-row" key={`${field}-${entryIndex}-${bulletIndex}`}>
-                <input
-                  className="text-input"
-                  value={bullet}
-                  onChange={(e) =>
-                    updateEntryBullet(field, entryIndex, bulletIndex, e.target.value)
-                  }
-                />
-                <button
-                  className="remove-btn"
-                  onClick={() => removeBullet(field, entryIndex, bulletIndex)}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <button className="ghost-btn" onClick={() => addBullet(field, entryIndex)}>
-              + Add Bullet
-            </button>
-          </div>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-function TextField({ label, value, onChange }) {
-  return (
-    <div className="field-wrap">
-      <label className="field-label">{label}</label>
-      <input
-        className="text-input"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
     </div>
   );
 }
 
 function WebsitePreview({ data }) {
   return (
-    <div className="site-wrapper">
+    <div className="site-preview">
       <nav className="site-nav">
         <div className="site-logo">{data.name || "Portfolio"}</div>
-        <div className="site-links">
+        <div className="site-nav-links">
           <a href="#skills">Skills</a>
-          <a href="#experience">Experience</a>
+          <a href="#experience">Work</a>
           <a href="#projects">Projects</a>
-          <a href="#education">Education</a>
         </div>
       </nav>
 
-      <header className="hero-section">
-        <div className="hero-copy">
-          <p className="eyebrow">Personal Website Preview</p>
+      <section className="hero-block pastel-a">
+        <div>
           <h1>{data.name || "Your Name"}</h1>
-          <p className="hero-subtext">
-            A clean website generated from an uploaded resume, with editable
-            sections for experience, projects, education, and skills.
-          </p>
 
-          <div className="contact-row">
+          <div className="contact-line">
             {data.email && <span>{data.email}</span>}
             {data.phone && <span>{data.phone}</span>}
           </div>
 
-          <div className="hero-buttons">
+          <div className="link-row">
             {data.linkedin && (
               <a
-                className="outline-link"
                 href={formatUrl(data.linkedin)}
                 target="_blank"
                 rel="noreferrer"
@@ -469,7 +253,6 @@ function WebsitePreview({ data }) {
             )}
             {data.github && (
               <a
-                className="outline-link"
                 href={formatUrl(data.github)}
                 target="_blank"
                 rel="noreferrer"
@@ -479,81 +262,68 @@ function WebsitePreview({ data }) {
             )}
           </div>
         </div>
+      </section>
 
-        <div className="hero-card">
-          <h3>Quick Summary</h3>
-          <p>{data.skills.length} skills extracted</p>
-          <p>{data.experience.length} experience entries</p>
-          <p>{data.projects.length} projects parsed</p>
-        </div>
-      </header>
-
-      <section id="skills" className="preview-section">
-        <div className="section-title-row">
-          <h2>Skills</h2>
-        </div>
-        <div className="pill-grid">
-          {data.skills.map((skill, index) => (
-            <span className="pill" key={index}>
+      <section id="skills" className="preview-section pastel-b">
+        <h2>Skills</h2>
+        <div className="skills-wrap">
+          {(data.skills || []).map((skill, index) => (
+            <span className="skill-pill" key={index}>
               {skill}
             </span>
           ))}
         </div>
       </section>
 
-      <section id="experience" className="preview-section">
-        <h2>Experience</h2>
+      <section id="experience" className="preview-section pastel-c">
+        <h2>Work</h2>
         <div className="card-grid">
-          {data.experience.map((item, index) => (
-            <article className="preview-card" key={index}>
-              <h3>{item.heading}</h3>
-              <ul>
-                {item.bullets.map((bullet, bulletIndex) => (
-                  <li key={bulletIndex}>{bullet}</li>
-                ))}
-              </ul>
-            </article>
-          ))}
+          {(data.experience || []).length > 0 ? (
+            (data.experience || []).map((item, index) => (
+              <div className="preview-card" key={index}>
+                <h3>{item.heading || "Experience"}</h3>
+                <ul>
+                  {(item.bullets || []).map((bullet, bulletIndex) => (
+                    <li key={bulletIndex}>{bullet}</li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          ) : (
+            <div className="preview-card">
+              <p>No experience parsed yet.</p>
+            </div>
+          )}
         </div>
       </section>
 
-      <section id="projects" className="preview-section">
+      <section id="projects" className="preview-section pastel-d">
         <h2>Projects</h2>
         <div className="card-grid">
-          {data.projects.map((item, index) => (
-            <article className="preview-card" key={index}>
-              <h3>{item.heading}</h3>
-              <ul>
-                {item.bullets.map((bullet, bulletIndex) => (
-                  <li key={bulletIndex}>{bullet}</li>
-                ))}
-              </ul>
-            </article>
-          ))}
+          {(data.projects || []).length > 0 ? (
+            (data.projects || []).map((item, index) => (
+              <div className="preview-card" key={index}>
+                <h3>{item.heading || "Project"}</h3>
+                <ul>
+                  {(item.bullets || []).map((bullet, bulletIndex) => (
+                    <li key={bulletIndex}>{bullet}</li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          ) : (
+            <div className="preview-card">
+              <p>No projects parsed yet.</p>
+            </div>
+          )}
         </div>
       </section>
 
-      <section id="education" className="preview-section">
+      <section id="education" className="preview-section pastel-e">
         <h2>Education</h2>
-        <article className="preview-card">
-          {data.education.map((line, index) => (
+        <div className="preview-card">
+          {(data.education || []).map((line, index) => (
             <p key={index}>{line}</p>
-          ))}
-        </article>
-      </section>
-
-      <section className="preview-section">
-        <h2>Leadership & Involvement</h2>
-        <div className="card-grid">
-          {data.leadership.map((item, index) => (
-            <article className="preview-card" key={index}>
-              <h3>{item.heading}</h3>
-              <ul>
-                {item.bullets.map((bullet, bulletIndex) => (
-                  <li key={bulletIndex}>{bullet}</li>
-                ))}
-              </ul>
-            </article>
           ))}
         </div>
       </section>

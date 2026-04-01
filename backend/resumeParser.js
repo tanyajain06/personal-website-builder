@@ -1,7 +1,7 @@
 function cleanLines(text) {
   return text
     .split("\n")
-    .map((line) => line.trim())
+    .map((line) => line.replace(/\s+/g, " ").trim())
     .filter((line) => line.length > 0);
 }
 
@@ -18,67 +18,76 @@ function extractPhone(text) {
 }
 
 function extractLinkedIn(text) {
-  const match = text.match(/(linkedin\.com\/in\/[^\s]+)/i);
+  const match = text.match(/(https?:\/\/)?(www\.)?linkedin\.com\/in\/[^\s)]+/i);
   return match ? match[0] : "";
 }
 
 function extractGitHub(text) {
-  const match = text.match(/(github\.com\/[^\s]+)/i);
+  const match = text.match(/(https?:\/\/)?(www\.)?github\.com\/[^\s)]+/i);
   return match ? match[0] : "";
 }
 
 function extractName(lines) {
-  if (!lines.length) return "";
-  return lines[0];
+  return lines.length ? lines[0] : "";
 }
 
-function findSectionIndices(lines) {
+function normalizeHeading(line) {
+  return line.toLowerCase().replace(/[^a-z\s]/g, "").trim();
+}
+
+function isLikelySectionHeading(line) {
+  const normalized = normalizeHeading(line);
   const headings = [
     "education",
     "experience",
     "work experience",
+    "professional experience",
     "projects",
     "technical skills",
     "skills",
     "leadership",
     "activities",
     "involvement",
-    "summary",
   ];
+  return headings.includes(normalized);
+}
 
+function findSectionIndices(lines) {
   const indices = {};
 
   lines.forEach((line, index) => {
-    const lowered = line.toLowerCase();
-    for (const heading of headings) {
-      if (lowered === heading || lowered.includes(heading)) {
-        if (!(heading in indices)) {
-          indices[heading] = index;
-        }
-      }
-    }
+    const normalized = normalizeHeading(line);
+
+    if (normalized === "education") indices.education = index;
+    if (normalized === "experience") indices.experience = index;
+    if (normalized === "work experience") indices.workExperience = index;
+    if (normalized === "professional experience") indices.professionalExperience = index;
+    if (normalized === "projects") indices.projects = index;
+    if (normalized === "technical skills") indices.technicalSkills = index;
+    if (normalized === "skills") indices.skills = index;
+    if (normalized === "leadership") indices.leadership = index;
+    if (normalized === "activities") indices.activities = index;
+    if (normalized === "involvement") indices.involvement = index;
   });
 
   return indices;
 }
 
-function getSection(lines, startIndex, allStartIndices) {
+function getSection(lines, startIndex) {
   if (startIndex === undefined) return [];
 
-  const nextIndices = Object.values(allStartIndices)
-    .filter((index) => index > startIndex)
-    .sort((a, b) => a - b);
-
-  const endIndex = nextIndices.length ? nextIndices[0] : lines.length;
-  return lines.slice(startIndex + 1, endIndex);
+  const collected = [];
+  for (let i = startIndex + 1; i < lines.length; i += 1) {
+    if (isLikelySectionHeading(lines[i])) break;
+    collected.push(lines[i]);
+  }
+  return collected;
 }
 
 function parseSkills(sectionLines) {
-  if (!sectionLines.length) return [];
-
   return sectionLines
-    .join(" ")
-    .split(/,|\||•/)
+    .join(" | ")
+    .split(/,|\||•|·/)
     .map((skill) => skill.trim())
     .filter((skill) => skill.length > 0);
 }
@@ -88,28 +97,21 @@ function groupBulletBlocks(sectionLines) {
   let currentEntry = null;
 
   for (const line of sectionLines) {
-    const isBullet =
-      line.startsWith("•") || line.startsWith("-") || line.startsWith("*");
+    const isBullet = /^[•*\-]/.test(line);
 
     if (!currentEntry) {
-      currentEntry = {
-        heading: line,
-        bullets: [],
-      };
+      currentEntry = { heading: line, bullets: [] };
       continue;
     }
 
     if (isBullet) {
-      currentEntry.bullets.push(line.replace(/^[•\-*]\s*/, ""));
+      currentEntry.bullets.push(line.replace(/^[•*\-]\s*/, ""));
     } else {
-      if (currentEntry.heading && currentEntry.bullets.length > 0) {
+      if (currentEntry.bullets.length > 0) {
         entries.push(currentEntry);
-        currentEntry = {
-          heading: line,
-          bullets: [],
-        };
-      } else if (currentEntry.heading) {
-        currentEntry.heading += " " + line;
+        currentEntry = { heading: line, bullets: [] };
+      } else {
+        currentEntry.heading = `${currentEntry.heading} ${line}`.trim();
       }
     }
   }
@@ -118,47 +120,26 @@ function groupBulletBlocks(sectionLines) {
     entries.push(currentEntry);
   }
 
-  return entries;
+  return entries.filter(
+    (entry) => entry.heading || (entry.bullets && entry.bullets.length > 0)
+  );
 }
 
 function parseResumeText(text) {
   const lines = cleanLines(text);
   const indices = findSectionIndices(lines);
 
-  const educationLines =
-    getSection(
-      lines,
-      indices.education,
-      indices
-    );
-
-  const experienceLines =
-    getSection(
-      lines,
-      indices.experience ?? indices["work experience"],
-      indices
-    );
-
-  const projectsLines =
-    getSection(
-      lines,
-      indices.projects,
-      indices
-    );
-
-  const skillsLines =
-    getSection(
-      lines,
-      indices["technical skills"] ?? indices.skills,
-      indices
-    );
-
-  const leadershipLines =
-    getSection(
-      lines,
-      indices.leadership ?? indices.activities ?? indices.involvement,
-      indices
-    );
+  const educationLines = getSection(lines, indices.education);
+  const experienceLines = getSection(
+    lines,
+    indices.experience ?? indices.workExperience ?? indices.professionalExperience
+  );
+  const projectsLines = getSection(lines, indices.projects);
+  const skillsLines = getSection(lines, indices.technicalSkills ?? indices.skills);
+  const leadershipLines = getSection(
+    lines,
+    indices.leadership ?? indices.activities ?? indices.involvement
+  );
 
   return {
     name: extractName(lines),
